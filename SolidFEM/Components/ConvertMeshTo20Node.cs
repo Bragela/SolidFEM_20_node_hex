@@ -64,8 +64,9 @@ namespace SolidFEM
             {
                 if (mesh.Vertices.Count == 8)
                 {
+                    //Sort nodes
                     Mesh nM = GrahamScan.DoGrahamScan(mesh);
-                    //Mesh nM = mesh;
+
                     if (nM.IsValid)
                     {
 
@@ -73,6 +74,7 @@ namespace SolidFEM
 
                         List<Point3d> vertices = vertices_array.ToList();
 
+                        //Add midside nodes
 
                         nM.Vertices.Add((vertices[0] + vertices[1]) / 2);
                         nM.Vertices.Add((vertices[1] + vertices[2]) / 2);
@@ -98,6 +100,7 @@ namespace SolidFEM
 
                         List<Point3d> vertices = vertices_array.ToList();
 
+                        //Add midside nodes
 
                         mesh.Vertices.Add((vertices[0] + vertices[1]) / 2);
                         mesh.Vertices.Add((vertices[1] + vertices[2]) / 2);

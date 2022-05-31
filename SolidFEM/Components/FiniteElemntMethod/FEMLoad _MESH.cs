@@ -61,7 +61,6 @@ namespace SolidFEM.FiniteElementMethod
 
             // Input
 
-            //SmartMesh smartMesh = new SmartMesh();
             List<Mesh> meshList = new List<Mesh>(); // 0
             int loadType = 0; // 1
             List<Vector3d> loadVectors = new List<Vector3d>();
@@ -79,7 +78,6 @@ namespace SolidFEM.FiniteElementMethod
             // Code
             // clean the mesh and sort nodes
             var newMeshList = new List<Mesh>();
-            int c = 0; // delete after testing
 
 
             foreach (Mesh mesh in meshList)
@@ -145,8 +143,6 @@ namespace SolidFEM.FiniteElementMethod
                 
                 for (int i = 0; i < loadVectors.Count; i++)
                 {
-                    //int nodeIndex = GetClosestNodeIndex(smartMesh.Nodes, loadPosition[i]);
-                    //int nodeIndex = GetClosestNodeIndex(mesh)
                     int nodeIndex = GetClosestNodeIndex(nodePts, loadPosition[i]);
                     if (nodeIndex == -1)
                     {
@@ -169,11 +165,13 @@ namespace SolidFEM.FiniteElementMethod
             }
             else if (loadType == 2)
             {
+                //Loop through all surfaces that are loaded
                 for (int i = 0; i < surfaces.Count; i++)
                 {
                     foreach (Mesh mesh in meshList)
                     {
-                        if (mesh.Vertices.Count == 8)
+                        //Loop through all meshes in the mesh list
+                        if (mesh.Vertices.Count == 8) //Method for 8-node hexahedron
                         {
                             List<Point3d> pts = new List<Point3d>();
                             foreach (Point3d pt in mesh.Vertices)
@@ -216,7 +214,7 @@ namespace SolidFEM.FiniteElementMethod
                                 }
                             }
                         }
-                        else if (mesh.Vertices.Count == 4)
+                        else if (mesh.Vertices.Count == 4) //Method for 4-node tetrahedron
                         {
                             List<Point3d> pts = new List<Point3d>();
                             foreach (Point3d pt in mesh.Vertices)
@@ -258,9 +256,12 @@ namespace SolidFEM.FiniteElementMethod
                                 }
                             }
                         }
-                        else if (mesh.Vertices.Count == 20)
+                        else if (mesh.Vertices.Count == 20) //Method for 20-node hexahedron
                         {
-                            int method = 3;
+                            int method = 3; //Fourd different methods, 0 and 1 are attempts at consistent load vector, 2 and 3 uses load lumping
+
+                            //Create list with points in mesh connected to loaded surface
+
                             List<Point3d> pts = new List<Point3d>();
                             foreach (Point3d pt in mesh.Vertices)
                             {
@@ -275,6 +276,7 @@ namespace SolidFEM.FiniteElementMethod
                                 }
                             }
 
+                            //Method 0, consistent load vector
                             if (pts.Count > 4 && method == 0)
                             {
                                 int order = 2;
@@ -390,6 +392,7 @@ namespace SolidFEM.FiniteElementMethod
 
                             }
 
+                            //Method 1, consistent load vector
                             else if (pts.Count > 4 && method == 1)
                             {
                                 int order = 3;
@@ -565,22 +568,26 @@ namespace SolidFEM.FiniteElementMethod
 
                             }
 
+                            //Method 2, load lumping with P/3 on midside nodes, and -P/12 in corner nodes
                             else if (pts.Count > 4 && method == 2)
                             {
-                                NurbsSurface meshSrf = NurbsSurface.CreateFromCorners(pts[0], pts[1], pts[2], pts[3]);  // may need to do a graham scan on meshSrf
+                                //Calculate area of loaded surface
+                                NurbsSurface meshSrf = NurbsSurface.CreateFromCorners(pts[0], pts[1], pts[2], pts[3]);
                                 AreaMassProperties amp = AreaMassProperties.Compute(meshSrf);
                                 double A = amp.Area;
                                 totalArea += A;
 
                                 int cnt = 0;
 
+                                //Loop through all loaded points
                                 foreach (var pt in pts)
                                 {
                                     double xLoad = 0;
                                     double yLoad = 0;
                                     double zLoad = 0;
-                                    if (cnt < 4)
+                                    if (cnt < 4) //Corner nodes
                                     {
+                                        //Create nodal load vector
                                         Vector3d nodalForce = -A * loadVectors[i] / 12;
 
                                         // Deconstruct load vector
@@ -588,8 +595,9 @@ namespace SolidFEM.FiniteElementMethod
                                         yLoad = nodalForce.Y;
                                         zLoad = nodalForce.Z;
                                     }
-                                    else
+                                    else //Midsde nodes
                                     {
+                                        //Create nodal load vector
                                         Vector3d nodalForce = A * loadVectors[i] / 3;
 
                                         // Deconstruct load vector
@@ -614,21 +622,27 @@ namespace SolidFEM.FiniteElementMethod
                                     cnt++;
                                 }
                             }
+
+                            //Method 3, load lumping with P/8 in all nodes
                             else if (pts.Count > 4 && method == 3)
                             {
-                                NurbsSurface meshSrf = NurbsSurface.CreateFromCorners(pts[0], pts[1], pts[2], pts[3]);  // may need to do a graham scan on meshSrf
+                                //Calculate the area of the loaded surface
+                                NurbsSurface meshSrf = NurbsSurface.CreateFromCorners(pts[0], pts[1], pts[2], pts[3]); 
                                 AreaMassProperties amp = AreaMassProperties.Compute(meshSrf);
                                 double A = amp.Area;
                                 totalArea += A;
 
                                 int cnt = 0;
 
+
+                                //Loop through all loaded points
                                 foreach (var pt in pts)
                                 {
                                     double xLoad = 0;
                                     double yLoad = 0;
                                     double zLoad = 0;
-
+                                    
+                                    //Create nodal load vector
                                     Vector3d nodalForce = A * loadVectors[i] / 8;
 
                                     // Deconstruct load vector

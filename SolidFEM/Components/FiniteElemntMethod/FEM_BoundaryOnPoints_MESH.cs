@@ -56,7 +56,6 @@ namespace SolidFEM.FiniteElementMethod
             bool ty = true; // 3
             bool tz = true; // 4
             List<Mesh> meshList = new List<Mesh>(); // 0
-            //SmartMesh sMesh = new SmartMesh(); // 0
             List<Point3d> positions = new List<Point3d>(); // 1
             List<Brep> supSurf = new List<Brep>();
             int type = 1;
@@ -76,9 +75,8 @@ namespace SolidFEM.FiniteElementMethod
 
 
             // -- method --
-            // clean the mesh and sort nodes, if Hex20 add midside nodes
+            // clean the mesh and sort nodes
             var newMeshList = new List<Mesh>();
-            int c = 0; // delete after testing
             foreach (Mesh mesh in meshList)
             {
                 if (mesh.Vertices.Count == 8)
@@ -107,9 +105,11 @@ namespace SolidFEM.FiniteElementMethod
 
             }
 
+            //Get nodes of mesh
             List<Point3d> nodePts = FEM_Utility.GetMeshNodes(newMeshList);
             List<Support> supportList = new List<Support>();
 
+            //Point support
             if (type == 1)
             {
 
@@ -125,13 +125,16 @@ namespace SolidFEM.FiniteElementMethod
                 }
                 
             }
+            //Surface support
             else if (type == 2)
             {
+                //Loop through all surfaces
                 foreach (Brep surf in supSurf)
                 {
                     Surface supSurface = surf.Surfaces[0];
                     for (int i = 0; i < nodePts.Count; i++)
                     {
+                        //Find points in mesh connected to support surface
                         Point3d point = nodePts[i];
                         double u = new double();
                         double v = new double();

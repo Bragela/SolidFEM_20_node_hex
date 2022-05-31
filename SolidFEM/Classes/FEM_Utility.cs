@@ -38,8 +38,6 @@ namespace SolidFEM.Classes
                 var vertices_array = mEl.Vertices.ToPoint3dArray(); // an array of the vertices of each mesh element
 
                 List<Point3d> vertices = vertices_array.ToList();
-                // sort the vertices by a Graham 
-                //List<Point3d> sortedVertices = SortVerticesByGrahamScan(vertices.ToList());
 
                 for (int i = 0; i < vertices.Count; i++)
                 {
@@ -58,13 +56,11 @@ namespace SolidFEM.Classes
                         }
                     }
                     
-                    //int globalInd = globalNodePts.IndexOf(mPt); // find the global ID of the element node. -1 if not present
                     if (globalInd == -1) 
                     {
                         throw new Exception("There is a mismatch between the elements' node and the nodes of the system... ");
                     }
                     // create a new node
-                    //n = new Node(globalInd, mPt);
                     Node n = new Node(globalInd, globalNodePts[globalInd]);                    
                     n.ID = localNodeID; // 
                     
@@ -77,6 +73,8 @@ namespace SolidFEM.Classes
                 el.Nodes = elNodes; // add nodes to the elements
                 el.Connectivity = connectivity; // Add the connectivity
                 el.ElementMesh = mList[IDCounter];
+
+                //Add element type
                 if(elNodes.Count == 8)
                 {
                     el.Type = "Hex8";
@@ -115,15 +113,9 @@ namespace SolidFEM.Classes
                     double dist = uniquePts.Min(pt=> pt.DistanceToSquared(point3D));
                     if(dist > 0.00001)
                     {
-                        //uniquePts.Add(point3D); // if the minimum distance between the current point and all other unique points are greater than a tolerance, it is not already in the list
+                        // if the minimum distance between the current point and all other unique points are greater than a tolerance, it is not already in the list
                         uniquePts.Add(new Point3d(Math.Round(point3D.X, 4), Math.Round(point3D.Y, 4), Math.Round(point3D.Z, 4)));
                     }
-                    /*
-                    int index = uniquePts.IndexOf(point3D); // returns -1 if the point is not already added to the list
-                    if (index == -1)
-                    {
-                        uniquePts.Add(point3D); // add the new point to the list
-                    }*/
                 }
             }
             return uniquePts;
@@ -150,9 +142,8 @@ namespace SolidFEM.Classes
         {
             // Initiate the empty body force vector: 
             var F_body1 = new CSD.DenseMatrix(numGlobalNodes * 3, 1);
-            //CSD.DenseMatrix F_body = new CSD.DenseMatrix(numGlobalNodes * 3, 1);
             LA.Vector<double> F_body = LA.Vector<double>.Build.Dense(numGlobalNodes * 3); // create the empty load vector
-            LA.Vector<double> bodyLoadVector = LA.Vector<double>.Build.DenseOfArray(new double[] {0, 0, -  (material.Weight * 9.81 * Math.Pow(10, -9) ) });
+            LA.Vector<double> bodyLoadVector = LA.Vector<double>.Build.DenseOfArray(new double[] {0, 0, -  (material.Weight * 9.81 * Math.Pow(10, -9) ) }); //Create the body load vector
             double elementJacobianTest = 0;
             for (int i = 0; i < elements.Count; i++)
             {
@@ -162,7 +153,6 @@ namespace SolidFEM.Classes
                 // first, get the global coordinates
                 LA.Matrix<double> globalElementCoordinates = LA.Matrix<double>.Build.Dense(el.Nodes.Count, 3);
 
-                //CSD.DenseMatrix globalElementCoordinate = new CSD.DenseMatrix(el.Nodes.Count, 3); // one column for x,y, and z coordinate
                 for (int j = 0; j < el.Nodes.Count; j++)
                 {
                     Node n = el.Nodes[j];
@@ -176,7 +166,7 @@ namespace SolidFEM.Classes
 
                 if (el.Type == "Hex20")
                 {
-                    order = 3;          //Order for gauss integration
+                    order = 3;              //Order for gauss integration
                 }
                   
 
@@ -199,17 +189,14 @@ namespace SolidFEM.Classes
                     // get the jacobian
                     var jacobianOperator = partialDerivatives.Multiply(globalElementCoordinates);
                     double jacobianDeterminant = jacobianOperator.Determinant();
-                    //double jacobianDet = FEM_Matrices.GetDeterminantJacobi(jacobianOperator, logger);
-                    
-                    elementJacobianTest += jacobianDeterminant;
-                    //double jacobianDet = jacobianOperator. // how to calculate the  determinant????
+
                     // get the H matrix from the shape functions
                     var shapeFunctions = GetShapeFunctions(r, s, t, el.Type);
 
                     // the H-matrix is the displacement interpolation matrix. 
                     var interpolationMatrix = DisplacementInterpolationMatrix(shapeFunctions, 3);
 
-                    //Get weights for gauss integration // Can later change GetGaussPointMatrix() to also give the wheights as output
+                    //Get weights for gauss integration
                     double w_r = 1;
                     double w_s = 1;
                     double w_t = 1;
@@ -240,15 +227,12 @@ namespace SolidFEM.Classes
                         }
                     }
 
-
-                    double t_ijk = 1.0; // not sure what this is yet
                     var gaussPointLoadVector = interpolationMatrix.TransposeThisAndMultiply(bodyLoadVector);
-                    gaussPointLoadVector = gaussPointLoadVector.Multiply( jacobianDeterminant * alpha_ijk * t_ijk * w_r * w_s * w_t);
+                    gaussPointLoadVector = gaussPointLoadVector.Multiply( jacobianDeterminant * alpha_ijk * w_r * w_s * w_t);
 
 
                     // add the vector from the gauss point to the element load vector
                     elForceVec.Add(gaussPointLoadVector, elForceVec);
-                    //elForceVec = elForceVec.Add(gaussPointLoadVector, elForceVec);
                 }
 
 
@@ -264,10 +248,6 @@ namespace SolidFEM.Classes
                          
 
             }
-
-            // I need the shape functions for the element. 8 noded element mean eight nodes. Should ensure that this is applicable for other types of elements as well. 
-            // control the sum of the element load. Should be equal to the total weight
-            //double numericalWeight = F_body.Sum();
 
             return F_body;
         }
@@ -384,7 +364,6 @@ namespace SolidFEM.Classes
                         -gaussPoint, gaussPoint, gaussPoint
 
                     };
-                    //var naturalCoordinatesGauss = new CSD.DenseMatrix(8, 3, gaussArray);
                     var naturalCoordinatesGauss = LA.Matrix<double>.Build.DenseOfRowMajor(8, 3, gaussArray);
                     return naturalCoordinatesGauss;
                 }
@@ -405,7 +384,6 @@ namespace SolidFEM.Classes
                         gaussPoint, gaussPoint,
                         -gaussPoint, gaussPoint,
                     };
-                    //var naturalCoordinatesGauss = new CSD.DenseMatrix(8, 3, gaussArray);
                     var naturalCoordinatesGauss = LA.Matrix<double>.Build.DenseOfRowMajor(4, 2, gaussArray);
                     return naturalCoordinatesGauss;
 
@@ -493,7 +471,6 @@ namespace SolidFEM.Classes
                         -gp, gp, 0
 
                     };
-                //var naturalCoordinatesGauss = new CSD.DenseMatrix(8, 3, gaussArray);
                 var naturalCoordinates = LA.Matrix<double>.Build.DenseOfRowMajor(20, 3, gaussArray);
 
                 for (int i = 0; i < naturalCoordinates.RowCount; i++)
@@ -552,8 +529,6 @@ namespace SolidFEM.Classes
                 };
 
                 var derivativeMatrix = LA.Matrix<double>.Build.DenseOfArray(derivateArray);
-                //var derivativeMatrix = CSD.DenseMatrix.OfArray(derivateArray);
-                //derivativeMatrix = derivativeMat
                 return derivativeMatrix; 
 
             }
@@ -566,7 +541,7 @@ namespace SolidFEM.Classes
                     {0, 0, 1, -1 }
                 };
                 var derivativeMatrix = LA.Matrix<double>.Build.DenseOfArray(derivateArray);
-                //var derivativeMatrix = CSD.DenseMatrix.OfArray(derivateArray);
+
                 return derivativeMatrix;
             }
             else if (elType == "Hex20")
@@ -660,7 +635,6 @@ namespace SolidFEM.Classes
                 double[] shapeFunc = new double[dofs];
                 for (int j = 0; j < dofs; j++){ shapeFunc[j] = shapeFunctions[0, i];}
 
-                //var subMat = CSD.DenseMatrix.OfDiagonalArray(shapeFunc);
                 var subMat = LA.Matrix<double>.Build.DenseOfDiagonalArray(shapeFunc);
                 interpolationMatrix.SetSubMatrix(0, i * dofs, subMat);
             }
@@ -704,13 +678,11 @@ namespace SolidFEM.Classes
                     {
                         if (i != j)
                         {
-                            //K_gl.Row(i).SetValue(0, j);
                             K_gl[i, j] = 0;
                             K_gl[j, i] = 0;
                         }
                         else
                         {
-                            //K_gl.Row(i).SetValue(1, j);
                             K_gl[i, j] = 1;
                             R_gl[i, 0] = 0;
                         }
@@ -720,179 +692,43 @@ namespace SolidFEM.Classes
             timer.Stop();
             logger.AddInfo("Time to restrain boundary conditions global stiffness and load matrix: " + timer.ElapsedMilliseconds + " ms"); timer.Reset();
 
-            // to do: Time this function. Could be super slow. Better ways to get the array?
-            /*
-            timer.Start();
-            var stiffnessArray = K_gl.AsColumnMajorArray();
-            timer.Stop();
-            logger.AddInfo("Transforming MathNet Matrix to Column Major Array: " + timer.ElapsedMilliseconds + " ms"); timer.Reset();
 
-            timer.Start();
-            //CompressedColumnStorage<double> CCS = CSD.SparseMatrix.OfColumnMajor(K_gl.RowCount, K_gl.ColumnCount, stiffnessArray);
-            timer.Stop();
-            logger.AddInfo("Create compressed column storage from array: " + timer.ElapsedMilliseconds + " ms"); timer.Reset();
-            */
             timer.Start();
             var CCS =  CSD.SparseMatrix.OfArray(K_gl); // Try this instead. Need to convert the K_gl from MathNet to CSparse. 
             timer.Stop(); logger.AddInfo("Create compressed Column Storage of K: " + timer.ElapsedMilliseconds + " ms"); timer.Reset();
-            #region Testing problems
-            
-            /*
-            timer.Start();
-            var R_LA = LA.Double.DenseVector.Build.DenseOfArray(R_gl.Values);
-            var u_LA = K_gl.Solve(R_LA);
-            timer.Stop();
-            logger.AddInfo("Time spent on testing a MathNet solver: " + timer.ElapsedMilliseconds + " ms"); timer.Reset();
-            */
-            #endregion
 
 
             timer.Start();
             SparseLU CS_K_global = SparseLU.Create(CCS, ColumnOrdering.MinimumDegreeAtPlusA, 0.0);
 
-
-            //SparseLDL CS_K_global = SparseLDL.Create(CCS, ColumnOrdering.MinimumDegreeAtPlusA); // Try an LDL system instead to test the speed
             timer.Stop();
             logger.AddInfo("Create LU decomposition of stiffness matrix: " + timer.ElapsedMilliseconds + " ms"); timer.Reset();
 
-            //double[] CS_u = CSD.Vector.Create(K_global_red.RowCount * 1, 0.0);
 
             timer.Start();
             double[] CS_u = CSD.Vector.Create(K_gl.GetLength(0), 0.0);
-            //double[] CS_R = R_red.Column(0).ToArray();
             double[] CS_R = R_gl.Column(0).ToArray();
             timer.Stop();
             logger.AddInfo("Prepare u and R arrays before solving for u: " + timer.ElapsedMilliseconds + " ms"); timer.Reset();
 
-            /*
-            for (int i = 0; i < CS_R.Length; i++)
-            {
-                CS_R[i] = Math.Round(CS_R[i], 6);
-            }
-            */
 
+            //Solve K = Ru -> u = inv(K) * R
             timer.Start();
             CS_K_global.Solve(CS_R, CS_u);
             timer.Stop();
             logger.AddInfo("Time spent solving the equations using LU: " + timer.ElapsedMilliseconds + " ms"); timer.Reset();
-            //logger.AddInfo("Time spent solving the equations using LDL: " + timer.ElapsedMilliseconds + " ms"); timer.Reset();
+
 
             timer.Start();
             var u = new CSD.DenseMatrix(CS_u.Length, 1, CS_u);
-            //var u = new CSD.DenseMatrix(CS_u.Length, 1, u_LA.ToArray());
             timer.Stop();
             logger.AddInfo("Making a CSparse matrix from u-array: " + timer.ElapsedMilliseconds + "ms"); timer.Reset();
-            //LA.Matrix<double> u = LA.Double.DenseMatrix.OfColumnArrays(CS_u);
             logger.AddInfo("----- Displacement calculation done -----");
             return u;
 
 
         }
 
-        public static LA.Matrix<double> CalculateDisplacement(LA.Matrix<double> K_gl, LA.Matrix<double> R_gl, List<List<int>> applyBCToDOF, ref FEMLogger logger)
-        {
-            // summary: include boundary condistions and calculate global displacement
-            var timer = new System.Diagnostics.Stopwatch();
-
-            // Make list of boundary condistions
-            logger.AddInfo("--- Displacement calculations ---");
-            timer.Start();
-            List<int> BCList = new List<int>();
-            for (int i = 0; i < applyBCToDOF.Count; i++)
-            {
-                for (int j = 0; j < applyBCToDOF[0].Count; j++)
-                {
-                    BCList.Add(applyBCToDOF[i][j]); // list of 0 and 1 values for boundary condition for dof; true = 1, false = 0
-                }
-            }
-
-            for (int i = 0; i < BCList.Count; i++)
-            {
-                for (int j = 0; j < BCList.Count; j++)
-                {
-
-                    if (BCList[i] == 1)
-                    {
-                        if (i != j)
-                        {
-                            K_gl[i, j] = 0;
-                        }
-                        else
-                        {
-                            K_gl[i, j] = 1;
-                            R_gl[i, 0] = 0;
-                        }
-                    }
-                }
-            }
-
-            timer.Stop();
-            logger.AddInfo($"Time elapsed during boundary conditions: {timer.ElapsedMilliseconds} ms"); timer.Reset();
-
-            // Reduce K_global and R
-            timer.Start();
-
-            // -- EDIT SVERRE ---
-            //int numRows = K_gl.RowCount;
-            //ReduceMatrices(BCList, numRows, ref K_gl,ref R_gl);
-
-            //var reducedData = ReduceKandR(K_gl, R_gl, BCList);
-
-            //LA.Matrix<double> K_global_red = reducedData.Item1;
-            //LA.Matrix<double> R_red = reducedData.Item2;
-            timer.Stop();
-            logger.AddInfo($"Time elapse for reducing K and R: {timer.ElapsedMilliseconds} ms"); timer.Reset();
-
-            // Time recorder
-            var sw0 = new System.Diagnostics.Stopwatch();
-            timer.Start();
-            // Mathnet.Numerics to CSparse
-            //var CMA = K_global_red.Storage.ToColumnMajorArray();
-            var CMA = K_gl.Storage.ToColumnMajorArray();
-            //CompressedColumnStorage<double> CCS = CSD.SparseMatrix.OfColumnMajor(K_global_red.RowCount, K_global_red.ColumnCount, CMA);
-            CompressedColumnStorage<double> CCS = CSD.SparseMatrix.OfColumnMajor(K_gl.RowCount, K_gl.ColumnCount, CMA);
-            timer.Stop();
-            logger.AddInfo($"Convert MathNet to CSparse: {timer.ElapsedMilliseconds} ms"); timer.Reset();
-
-
-            SparseLU CS_K_global = SparseLU.Create(CCS, ColumnOrdering.MinimumDegreeAtPlusA, 0.0);
-            //double[] CS_u = CSD.Vector.Create(K_global_red.RowCount * 1, 0.0);
-            double[] CS_u = CSD.Vector.Create(K_gl.RowCount * 1, 0.0);
-            //double[] CS_R = R_red.Column(0).ToArray();
-            double[] CS_R = R_gl.Column(0).ToArray();
-
-            timer.Start();
-            sw0.Start();
-            CS_K_global.Solve(CS_R, CS_u);
-            sw0.Stop();
-            timer.Stop();
-            logger.AddInfo($"Solve the system for displacements: {timer.ElapsedMilliseconds} ms"); timer.Reset();
-            //Rhino.RhinoApp.WriteLine($"### {K_global_red.RowCount} x {K_global_red.ColumnCount} Matrix. CSparse Elapsed [msec] = {sw0.Elapsed.TotalMilliseconds}");
-            //Rhino.RhinoApp.WriteLine($"### {K_gl.RowCount} x {K_gl.ColumnCount} Matrix. CSparse Elapsed [msec] = {sw0.ElapsedMilliseconds} "); sw0.Reset();
-
-            // CSparse to Mathnet.Numerics
-            timer.Start();
-            LA.Matrix<double> u = LA.Double.DenseMatrix.OfColumnArrays(CS_u);
-            timer.Stop();
-            logger.AddInfo($"Convert back to MathNet: {timer.ElapsedMilliseconds} ms"); timer.Reset();
-            logger.AddInfo("--- End displacement calculations ---");
-
-
-            // Get total displacement
-            // comment this out when skipping the row and column reduction of stiffness matrix
-            /*
-            LA.Vector<double> insertVec = DenseVector.Build.Dense(1);
-
-            for (int i = 0; i < BCList.Count; i++)
-            {
-                if (BCList[i] == 1)
-                {
-                    u = u.InsertRow(i, insertVec);
-                }
-            }
-            */
-            return u;
-        }
 
         /// <summary>
         /// Calculate a list of strain and stress vectors for each node in a element.
@@ -904,6 +740,7 @@ namespace SolidFEM.Classes
 
             List<LA.Matrix<double>> B_local = FEM_Matrices.CalculateElementMatrices(element, material, ref logger, "Reduced").Item2;
 
+            //Create empty lists for stress and strain
             LA.Matrix<double> elementGaussStrain = LA.Double.DenseMatrix.Build.Dense(B_local[0].RowCount, B_local.Count);
             LA.Matrix<double> elementGaussStress = LA.Double.DenseMatrix.Build.Dense(B_local[0].RowCount, B_local.Count);
             LA.Matrix<double> elementStrain = LA.Double.DenseMatrix.Build.Dense(B_local[0].RowCount, element.Nodes.Count);
@@ -964,24 +801,18 @@ namespace SolidFEM.Classes
                 for (int n = 0; n < B_local.Count; n++)
                 {
                     // B-matrix is calculated from gauss points, the optimal points corresponds to reduced integration for the 20-node element (2x2x2)
-
                     LA.Matrix<double> gaussStrain = B_local[n].Multiply(localDeformation);
                     LA.Matrix<double> gaussStress = C.Multiply(gaussStrain);
 
-
-
-                    // Use add column here instead of a loop?
                     for (int i = 0; i < B_local[0].RowCount; i++)
                     {
-                        elementGaussStrain[i, n] = gaussStrain[i, 0]; // Should there not be += here? Right now they overwrite the Gauss Strainf for each nodal evaluation
+                        elementGaussStrain[i, n] = gaussStrain[i, 0]; 
                         elementGaussStress[i, n] = gaussStress[i, 0];
                     }
                 }
 
                 // get node strain and stress by extrapolation
-
                 double gp = Math.Sqrt(3);
-
                 double[] gaussArray = new double[]
                     {
                         -gp, -gp, -gp,
@@ -1019,6 +850,8 @@ namespace SolidFEM.Classes
                     var shapefuncs = FEM_Utility.GetShapeFunctions(r, s, t, "Hex8");
 
                     double[] shape_vals = shapefuncs.Values;
+
+                    //Create shape function matrix for extrapolation from gauss points to nodal points
                     var shapefunctionValuesInNode = new LA.Double.DenseMatrix(shape_vals.Length, 1, shape_vals);
 
 
@@ -1075,8 +908,11 @@ namespace SolidFEM.Classes
             LA.Matrix<double> globalStress = LA.Double.DenseMatrix.Build.Dense(stressRowDim, numNodes);
             LA.Matrix<double> counter = LA.Double.DenseMatrix.Build.Dense(stressRowDim, numNodes);
             List<LA.Matrix<double>> elementStressList = new List<LA.Matrix<double>>();
+
+            //Loop through all elements
             foreach (Element element in elements)
             {
+                //Calculated element stress
                 LA.Matrix<double> elementStress = CalculateElementStrainStress(element, u, material, ref logger).Item2;
 
                 List<int> connectivity = element.Connectivity;
@@ -1085,6 +921,7 @@ namespace SolidFEM.Classes
                 {
                     for (int j = 0; j < elementStress.ColumnCount; j++) // loop the element nodes
                     {
+                        //Add stress at correct place in global list
                         globalStress[i, connectivity[j]] = globalStress[i, connectivity[j]] + elementStress[i, j];
                         counter[i, connectivity[j]]++;
                     }
@@ -1169,156 +1006,6 @@ namespace SolidFEM.Classes
                 else color = Color.Red;
 
                 mesh.Mesh.VertexColors.Add(color);
-            }
-        }
-
-        public static List<Point3d> SortedVerticesGraham(Mesh mesh)
-        {
-            // -- find the lowest and highest face of the mesh --
-            int lowface = 0;
-            int highFace = 0;
-            
-
-            // get the first centroid: 
-            var p0 = mesh.TopologyVertices[mesh.Faces[0].A];
-            var p1 = mesh.TopologyVertices[mesh.Faces[0].B];
-            var p2 = mesh.TopologyVertices[mesh.Faces[0].C];
-            var p3 = mesh.TopologyVertices[mesh.Faces[0].D];
-
-            List<Point3d> pts = new List<Point3d>() { p0, p1, p2, p3 };
-            double x = 0; double y = 0; double z = 0;
-            foreach (Point3d point in pts)
-            {
-                x += point.X;
-                y += point.Y;
-                z += point.Z;
-            }
-            Point3d currentFaceCenter = new Point3d(x / pts.Count, y / pts.Count, z / pts.Count);
-
-            for (int i = 1; i < mesh.Faces.Count; i++)
-            {
-                // get the first centroid: 
-                p0 = mesh.TopologyVertices[mesh.Faces[i].A];
-                p1 = mesh.TopologyVertices[mesh.Faces[i].B];
-                p2 = mesh.TopologyVertices[mesh.Faces[i].C];
-                p3 = mesh.TopologyVertices[mesh.Faces[i].D];
-
-                pts = new List<Point3d>() { p0, p1, p2, p3 };
-                x = 0; y = 0; z = 0;
-                foreach (Point3d point in pts)
-                {
-                    x += point.X;
-                    y += point.Y;
-                    z += point.Z;
-                }
-                Point3d faceCenter = new Point3d(x / pts.Count, y / pts.Count, z / pts.Count);
-
-                if (faceCenter.Z > currentFaceCenter.Z)
-                {
-                    highFace = i;
-                }
-                else if (faceCenter.Z < currentFaceCenter.Z)
-                {
-                    lowface = i;
-                }
-            }
-
-            // -- get the vertices from the lowest and highest face --
-            List<Point3f> lowPts = new List<Point3f>() { mesh.TopologyVertices[mesh.Faces[lowface].A], mesh.TopologyVertices[mesh.Faces[lowface].B], mesh.TopologyVertices[mesh.Faces[lowface].C], mesh.TopologyVertices[mesh.Faces[lowface].D] };
-            List<Point3f> highPts = new List<Point3f>() { mesh.TopologyVertices[mesh.Faces[highFace].A], mesh.TopologyVertices[mesh.Faces[highFace].B], mesh.TopologyVertices[mesh.Faces[highFace].C], mesh.TopologyVertices[mesh.Faces[highFace].D] };
-
-
-
-            
-            List<Point3d> sortedVertices = new List<Point3d>();
-
-            Stack<Point3d> stack = new Stack<Point3d>();
-
-
-            return sortedVertices;
-        }
-        public static List<Point3d> SortVerticesByGrahamScan(List<Point3d> vertices)
-        {
-            
-            //Subtract top and bottom vertices
-            #region Split into top and bottom vertices
-            List<Point3d> sortedNodes = new List<Point3d>();
-            // Calculate the center point
-            double sumX = 0;
-            double sumY = 0;
-            double sumZ = 0;
-            foreach (Point3d pt in vertices)
-            {
-                sumX += pt.X;
-                sumY += pt.Y;
-                sumZ += pt.Z;
-            }
-            Point3d centerPt = new Point3d(sumX / vertices.Count, sumY / vertices.Count, sumZ / vertices.Count);
-            // If points are below centerPt,
-            var bottomNodes = new List<Point3d>();
-            var topNodes = new List<Point3d>();
-            // Assign the Nodes in top and bottom list
-            foreach (Point3d pt in vertices)
-            {
-                if (pt.Z > centerPt.Z)
-                {
-                    topNodes.Add(pt);
-                }
-                else
-                    bottomNodes.Add(pt);
-            }
-            #endregion
-            #region Sort top and bottom nodes
-            topNodes = topNodes.OrderBy(pt => pt.Y).ThenBy(pt => pt.X).ToList(); // Is it working if several points has the same y-value?
-            //topNodes = topNodes.OrderBy(pt => Math.Atan2(pt.Y - topNodes[0].Y, pt.X - topNodes[0].X)).ToList();
-            List<Point3d> sortedTop = new List<Point3d>();
-            while (topNodes.Count > 0)
-            {
-                GrahamScan(ref topNodes, ref sortedTop);
-            }
-            bottomNodes = bottomNodes.OrderBy(pt => pt.Y).ThenBy(pt => pt.X).ToList();
-            //bottomNodes = bottomNodes.OrderBy(pt => Math.Atan2(pt.Y - bottomNodes[0].Y, pt.X - bottomNodes[0].X)).ToList();
-            List<Point3d> sortedBottom = new List<Point3d>();
-            while (bottomNodes.Count > 0)
-            {
-                GrahamScan(ref bottomNodes, ref sortedBottom);
-            }
-            #endregion
-            #region Modify element vertices with new list.
-            List<Point3d> sortedVertices = new List<Point3d>();
-            sortedVertices.AddRange(sortedBottom);
-            sortedVertices.AddRange(sortedTop);
-            #endregion
-            return sortedVertices;
-        }
-
-        private static void GrahamScan(ref List<Point3d> pts, ref List<Point3d> selPts)
-        {
-            if (pts.Count > 0)
-            {
-                var pt = pts[0];
-                if (selPts.Count <= 1)
-                {
-                    selPts.Add(pt);
-                    pts.RemoveAt(0);
-                }
-                else
-                {
-                    var pt1 = selPts[selPts.Count - 1];
-                    var pt2 = selPts[selPts.Count - 2];
-                    Vector3d dir1 = pt1 - pt2;
-                    Vector3d dir2 = pt - pt1;
-                    var crossProd = Vector3d.CrossProduct(dir1, dir2);
-                    if (crossProd.Z < 0) // Check if the turn is clockwise or counter-clockwise
-                    {
-                        selPts.RemoveAt(selPts.Count - 1); //
-                    }
-                    else
-                    {
-                        selPts.Add(pt);
-                        pts.RemoveAt(0);
-                    }
-                }
             }
         }
     }
